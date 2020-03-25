@@ -154,9 +154,29 @@ var lodash = require('lodash'),
         if (self.pdf.y + row._renderedContent.height > (self.pos.maxY || (self.pdf.page.height - self.pdf.page.margins.bottom) - self.bottomMargin)) {
             self.emitter.emit('page-add', self, row, ev);
             if (!ev.cancel) {
-                self.pdf.addPage();
+                /**@type {PDFKit.PDFDocument} */
+                const pdf = self.pdf;
+                pdf.addPage(self.pageConfig || {});
+                if(self.pageHeader) {
+                    /**@type {{pageHeader: {
+                     *  type: string;
+                     *  path?: string;
+                     *  content?: string;
+                     *  x?: number;
+                     *  y?: number;
+                     *  options?: PDFKit.Mixins.ImageOption
+                     * }}} */
+                    const { pageHeader } = self;
+                    if(pageHeader.type === 'image') {
+                        const {path, x = 0, y = 0, options = {
+                            width: pdf.page.width,
+                        }} = pageHeader;
+                        pdf.image(path, x, y, options);
+                    }
+                }
+
                 // Reset Y position for next page
-                pos.y = self.pos.y || self.pdf.page.margins.top;
+                pos.y = self.pos.y || pdf.page.margins.top;
             }
             self.emitter.emit('page-added', self, row);
             // Reset Y position if page-added drawn something
@@ -216,6 +236,18 @@ var lodash = require('lodash'),
 
     PdfTable = function (pdf, conf) {
         lodash.merge(this, {
+            /**
+             * page header lint
+             * image or text
+             * { type: 'text', content: 'header', fontSize: 18 }
+             * { type: 'image', path: '/a/a.png'}
+             */
+            pageHeader: null,
+
+            pageConfig: {
+                margin: [ 10, 10, 10, 10 ],
+            },
+
             /**
              * List of columns
              * @var {Array}
